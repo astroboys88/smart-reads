@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Reads — AI Article Summarizer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #0a0a1a 0%, #111128 40%, #0d0d20 100%); }
+    .glass { backdrop-filter: blur(12px); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+    .gradient-text { background: linear-gradient(135deg, #60a5fa 0%, #818cf8 50%, #a78bfa 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .card-hover:hover { border-color: rgba(96,165,250,0.4); }
+    .btn-glow { box-shadow: 0 0 25px rgba(96,165,250,0.3); }
+    .btn-glow:hover { box-shadow: 0 0 35px rgba(96,165,250,0.5); }
+    .loader { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid #60a5fa; border-radius: 50%; width: 28px; height: 28px; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    textarea { resize: none; }
+    .url-preview { transition: all 0.3s; }
+    .bullet { position: relative; padding-left: 1.5rem; }
+    .bullet::before { content: '→'; position: absolute; left: 0; color: #60a5fa; font-weight: 700; }
+    .keypt { position: relative; padding-left: 1.5rem; }
+    .keypt::before { content: '★'; position: absolute; left: 0; color: #a78bfa; }
+    .action-item { position: relative; padding-left: 1.5rem; }
+    .action-item::before { content: '⚡'; position: absolute; left: 0; }
+  </style>
+</head>
+<body class="gradient-bg text-white min-h-screen">
+
+  <!-- Header -->
+  <header class="fixed top-0 w-full z-50 glass">
+    <div class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+          <i class="ph ph-book-open-text text-lg"></i>
+        </div>
+        <div>
+          <span class="font-bold text-lg">Smart Reads</span>
+          <span class="text-xs text-gray-500 ml-2">AI Summarizer</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="openSettings()" class="text-gray-400 hover:text-white transition flex items-center gap-1.5 text-sm">
+          <i class="ph ph-key text-sm"></i> <span class="hidden sm:inline">API Key</span>
+        </button>
+        <a href="https://github.com/astroboys88/smart-reads" target="_blank" class="text-gray-500 hover:text-white transition">
+          <i class="ph ph-github-logo text-xl"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="pt-24 pb-16 px-4">
+
+    <!-- Hero -->
+    <div class="max-w-4xl mx-auto text-center mb-12">
+      <div class="inline-flex items-center gap-2 bg-blue-500/20 text-blue-400 px-4 py-1.5 rounded-full text-xs mb-4">
+        <i class="ph ph-lightning text-yellow-400"></i>
+        Xiaomi MiMo 100T Creator Program
+      </div>
+      <h1 class="text-4xl md:text-5xl font-extrabold mb-4">
+        <span class="gradient-text">Baca Cerdas,</span><br>Hemat Waktu
+      </h1>
+      <p class="text-gray-400 max-w-lg mx-auto">Paste artikel atau masukkan URL → AI merangkum jadi 3 poin utama + takeaways + actionable insight. Dalam Bahasa Indonesia.</p>
+    </div>
+
+    <!-- Input Section -->
+    <div class="max-w-4xl mx-auto glass rounded-2xl p-6 mb-6">
+
+      <!-- Tabs -->
+      <div class="flex gap-2 mb-6">
+        <button onclick="switchMode('url')" id="tab-url" class="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-500/30 text-blue-300 border border-blue-500/40 transition">🔗 URL</button>
+        <button onclick="switchMode('text')" id="tab-text" class="px-5 py-2 rounded-xl text-sm font-semibold bg-white/5 text-gray-400 border border-transparent hover:bg-white/10 transition">📝 Paste Text</button>
+      </div>
+
+      <!-- URL Mode -->
+      <div id="mode-url">
+        <div class="flex gap-3 mb-4">
+          <input id="urlInput" type="url" placeholder="https://medium.com/article-contoh..."
+            class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/60 transition">
+          <button onclick="fetchURL()" id="fetchBtn" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl text-sm font-semibold hover:opacity-90 transition flex items-center gap-2 btn-glow">
+            <i class="ph ph-magnifying-glass text-lg"></i> Fetch
+          </button>
+        </div>
+        <div id="urlPreview" class="hidden glass rounded-xl p-4 mb-4 url-preview">
+          <div class="flex items-start gap-3">
+            <div class="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-1">
+              <i class="ph ph-link text-blue-400 text-xl"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div id="previewTitle" class="font-semibold text-sm mb-1 truncate"></div>
+              <div id="previewDesc" class="text-xs text-gray-500 line-clamp-2"></div>
+            </div>
+            <button onclick="clearURL()" class="text-gray-500 hover:text-white transition flex-shrink-0">
+              <i class="ph ph-x text-lg"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Text Mode -->
+      <div id="mode-text" class="hidden">
+        <textarea id="textInput" rows="7" placeholder="Paste artikel atau teks panjangmu di sini... AI akan merangkum jadi 3 bullet utama, key takeaways, dan actionable insight."
+          class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/60 transition mb-4"></textarea>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-600"><span id="charCount">0</span> characters</span>
+          <button onclick="clearText()" class="text-sm text-gray-500 hover:text-white transition">Clear</button>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="mt-5 flex flex-wrap gap-3">
+        <button onclick="summarize()" id="summarizeBtn" class="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl text-sm font-semibold hover:opacity-90 transition flex items-center gap-2 btn-glow">
+          <i class="ph ph-sparkle text-lg"></i> Summarize dengan AI
+        </button>
+        <button onclick="showHistory()" id="historyBtn" class="px-5 py-3 bg-white/10 border border-white/20 rounded-xl text-sm font-semibold hover:bg-white/20 transition flex items-center gap-2">
+          <i class="ph ph-clock-counter-clockwise"></i> Riwayat
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingState" class="hidden max-w-4xl mx-auto glass rounded-2xl p-10 text-center">
+      <div class="loader mx-auto mb-4"></div>
+      <p class="text-gray-400 text-sm">AI sedang menganalisis artikel...</p>
+      <p class="text-gray-600 text-xs mt-2"> biasanya butuh 5-15 detik</p>
+    </div>
+
+    <!-- Results -->
+    <div id="resultsSection" class="hidden max-w-4xl mx-auto grid gap-6 fade-in">
+
+      <!-- 3 Bullet Summary -->
+      <div class="glass rounded-2xl p-6 card-hover transition-all">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/30 to-cyan-500/30 flex items-center justify-center">
+            <i class="ph ph-list-dashes text-xl text-blue-400"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-lg">Ringkasan 3 Poin</h2>
+            <p class="text-xs text-gray-500">Inti dari artikel dalam 3 kalimat</p>
+          </div>
+        </div>
+        <div id="summaryOutput" class="space-y-4 text-sm leading-relaxed"></div>
+      </div>
+
+      <!-- Key Takeaways -->
+      <div class="glass rounded-2xl p-6 card-hover transition-all">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center">
+            <i class="ph ph-star text-xl text-purple-400"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-lg">Key Takeaways</h2>
+            <p class="text-xs text-gray-500">Poin-poin penting yang值得diingat</p>
+          </div>
+        </div>
+        <div id="takeawaysOutput" class="space-y-3 text-sm leading-relaxed"></div>
+      </div>
+
+      <!-- Actionable Insight -->
+      <div class="glass rounded-2xl p-6 card-hover transition-all">
+        <div class="flex items-center gap-3 mb-5">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500/30 to-orange-500/30 flex items-center justify-center">
+            <i class="ph ph-lightning text-xl text-yellow-400"></i>
+          </div>
+          <div>
+            <h2 class="font-bold text-lg">Actionable Insight</h2>
+            <p class="text-xs text-gray-500">1 langkah nyata yang bisa kamu mulai sekarang</p>
+          </div>
+        </div>
+        <div id="actionOutput" class="text-sm leading-relaxed"></div>
+      </div>
+
+      <!-- Meta Info -->
+      <div id="metaCard" class="glass rounded-2xl p-5 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+        <span id="metaSource" class="flex items-center gap-1.5"><i class="ph ph-link"></i></span>
+        <span id="metaWordCount" class="flex items-center gap-1.5"><i class="ph ph-text-aa"></i></span>
+        <span id="metaTime" class="flex items-center gap-1.5"><i class="ph ph-clock"></i></span>
+      </div>
+
+    </div>
+
+    <!-- History Panel -->
+    <div id="historyPanel" class="hidden max-w-4xl mx-auto glass rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-lg">📜 Riwayat Baca</h2>
+        <button onclick="closeHistory()" class="text-gray-500 hover:text-white transition"><i class="ph ph-x text-xl"></i></button>
+      </div>
+      <div id="historyList" class="space-y-3"></div>
+      <button onclick="clearHistory()" class="mt-4 text-xs text-red-400/60 hover:text-red-400 transition">🗑️ Clear semua riwayat</button>
+    </div>
+
+  </main>
+
+  <!-- API Key Modal -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div class="glass rounded-2xl p-6 w-full max-w-md">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="font-bold text-lg">⚙️ Setup API Key</h3>
+        <button onclick="closeSettings()" class="text-gray-500 hover:text-white transition"><i class="ph ph-x text-xl"></i></button>
+      </div>
+      <p class="text-sm text-gray-400 mb-4">Masukkan Xiaomi MiMo API key kamu. Dapatkan free credits di <a href="https://100t.xiaomimimo.com" target="_blank" class="text-blue-400 hover:underline">100T Program</a>.</p>
+      <input id="apiKeyInput" type="password" placeholder="MIMO-..." 
+        class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/60 transition mb-4">
+      <div class="flex gap-3">
+        <button onclick="saveAPIKey()" class="flex-1 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl text-sm font-semibold hover:opacity-90 transition">Simpan</button>
+        <button onclick="testAPI()" id="testBtn" class="px-5 py-2.5 bg-white/10 border border-white/20 rounded-xl text-sm font-semibold hover:bg-white/20 transition">Test</button>
+      </div>
+      <div id="apiStatus" class="mt-3 text-xs text-center"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3 rounded-xl text-sm font-semibold shadow-2xl transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+    <span id="toastMsg">Saved!</span>
+  </div>
+
+  <script>
+    // ── State ──────────────────────────────────────
+    let currentMode = 'url';
+    let fetchedContent = '';
+    let fetchedTitle = '';
+    let apiKey = localStorage.getItem('mimo_key_smartreads') || '';
+    let history = JSON.parse(localStorage.getItem('smartreads_history') || '[]');
+
+    // ── Init ───────────────────────────────────────
+    (function init() {
+      document.getElementById('textInput').addEventListener('input', (e) => {
+        document.getElementById('charCount').textContent = e.target.value.length;
+      });
+      if (apiKey) document.getElementById('apiKeyInput').value = apiKey;
+      renderHistory();
+    })();
+
+    // ── Mode Switch ─────────────────────────────────
+    function switchMode(mode) {
+      currentMode = mode;
+      document.getElementById('mode-url').classList.toggle('hidden', mode !== 'url');
+      document.getElementById('mode-text').classList.toggle('hidden', mode !== 'text');
+      document.getElementById('tab-url').className = `px-5 py-2 rounded-xl text-sm font-semibold transition ${mode === 'url' ? 'bg-blue-500/30 text-blue-300 border border-blue-500/40' : 'bg-white/5 text-gray-400 border border-transparent hover:bg-white/10'}`;
+      document.getElementById('tab-text').className = `px-5 py-2 rounded-xl text-sm font-semibold transition ${mode === 'text' ? 'bg-blue-500/30 text-blue-300 border border-blue-500/40' : 'bg-white/5 text-gray-400 border border-transparent hover:bg-white/10'}`;
+    }
+
+    // ── Fetch URL ──────────────────────────────────
+    async function fetchURL() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) return showToast('Masukkan URL dulu!');
+      const btn = document.getElementById('fetchBtn');
+      btn.innerHTML = '<div class="loader" style="width:16px;height:16px;border-width:2px"></div> Fetching...';
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+        if (!res.ok) throw new Error('Failed to fetch');
+        const html = await res.text();
+        const doc = new DOMParser().newFromDocument(doc, 'text/html');
+        const parser = new DOMParser();
+        const d = parser.parseFromString(html, 'text/html');
+
+        fetchedTitle = d.querySelector('h1')?.textContent?.trim() || d.title || 'Untitled';
+        const metaDesc = d.querySelector('meta[name="description"]')?.content || '';
+        const article = d.querySelector('article') || d.querySelector('main') || d.body;
+        let text = article?.textContent || '';
+        text = text.replace(/\s+/g, ' ').trim().slice(0, 8000);
+        fetchedContent = text;
+        fetchedTitle = fetchedTitle.replace(/\s+/g, ' ').trim().slice(0, 200);
+
+        document.getElementById('previewTitle').textContent = fetchedTitle;
+        document.getElementById('previewDesc').textContent = metaDesc || `${text.length} chars extracted`;
+        document.getElementById('urlPreview').classList.remove('hidden');
+        showToast('Artikel berhasil di-fetch!');
+      } catch (err) {
+        showToast('Gagal fetch URL. Coba lagi atau paste text langsung.');
+      } finally {
+        btn.innerHTML = '<i class="ph ph-magnifying-glass text-lg"></i> Fetch';
+        btn.disabled = false;
+      }
+    }
+
+    function clearURL() {
+      document.getElementById('urlInput').value = '';
+      document.getElementById('urlPreview').classList.add('hidden');
+      fetchedContent = '';
+      fetchedTitle = '';
+    }
+
+    function clearText() {
+      document.getElementById('textInput').value = '';
+      document.getElementById('charCount').textContent = '0';
+    }
+
+    // ── Summarize ──────────────────────────────────
+    async function summarize() {
+      let content = '';
+      let title = '';
+      let wordCount = 0;
+
+      if (currentMode === 'url') {
+        content = fetchedContent;
+        title = fetchedTitle;
+        if (!content) return showToast('Fetch URL dulu sebelum summarize!');
+      } else {
+        content = document.getElementById('textInput').value.trim();
+        title = 'Text Input';
+        if (!content) return showToast('Masukkan teks dulu!');
+        if (content.length < 100) return showToast('Teks terlalu pendek untuk di-summarize.');
+      }
+
+      wordCount = content.split(/\s+/).length;
+
+      // Show loading
+      document.getElementById('loadingState').classList.remove('hidden');
+      document.getElementById('resultsSection').classList.add('hidden');
+      document.getElementById('summarizeBtn').disabled = true;
+
+      const key = apiKey || localStorage.getItem('mimo_key_smartreads') || '';
+      if (!key) {
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('summarizeBtn').disabled = false;
+        return openSettings();
+      }
+
+      const prompt = `Kamu adalah AI summarizer professional. Baca teks berikut dan berikan output dalam format yang sangat jelas:
+
+---
+ISI ARTIKEL:
+${content.slice(0, 6000)}
+---
+
+OUTPUTKAN DALAM FORMAT INI (semua dalam Bahasa Indonesia):
+
+📌 RINGKASAN 3 POIN:
+[3 kalimat yang masing-masing poin itu adalah inti dari artikel. Satu poin per baris, pakai format "• [kalimat lengkap]"]
+
+🌟 KEY TAKEAWAYS:
+[3-5 poin penting yang worth untuk diingat. Setiap poin 1 baris singkat padat. Format "• [teks]"]
+
+⚡ ACTIONABLE INSIGHT:
+[1 langkah spesifik, nyata, dan actionable yang langsung bisa dilakukan pembaca sekarang. Dalam 1-2 kalimat. Harus konkret, bukan teori.]
+
+Guidelines:
+- Ringkasan harus mencerminkan isi artikel yang sebenarnya, bukan mengarang
+- Key takeaways harus insight yang berguna, bukan hanya summary
+- Actionable insight harus sesuatu yang langsung bisa di-execute
+- Bahasa Indonesia yang natural dan mudah dipahami
+- Jangan gunakan markdown formatting selain "•" untuk bullet points`;
+
+      try {
+        const res = await fetch('https://api.xiaomimimo.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'MiMo-8B-Preview',
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 1500,
+            temperature: 0.3,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error?.message || `API error ${res.status}`);
+        }
+
+        const data = await res.json();
+        const output = data.choices?.[0]?.message?.content || '';
+        parseAndRenderOutput(output, title, wordCount, currentMode === 'url' ? document.getElementById('urlInput').value : '');
+
+        // Save to history
+        const entry = { title, content: content.slice(0, 200), output: output.slice(0, 500), url: currentMode === 'url' ? document.getElementById('urlInput').value : '', time: new Date().toISOString() };
+        history.unshift(entry);
+        if (history.length > 20) history = history.slice(0, 20);
+        localStorage.setItem('smartreads_history', JSON.stringify(history));
+        renderHistory();
+
+      } catch (err) {
+        showToast('Summarize gagal: ' + err.message);
+      } finally {
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('summarizeBtn').disabled = false;
+      }
+    }
+
+    function parseAndRenderOutput(output, title, wordCount, url) {
+      const lines = output.split('\n').filter(l => l.trim());
+
+      let summaryLines = [];
+      let takeawayLines = [];
+      let actionLine = '';
+
+      let section = '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.includes('RINGKASAN') || trimmed.includes('3 POIN') || trimmed.includes('Ringkasan')) { section = 'summary'; continue; }
+        if (trimmed.includes('KEY TAKEAWAY') || trimmed.includes('Takeaway') || trimmed.includes('TAKEAWAY')) { section = 'takeaway'; continue; }
+        if (trimmed.includes('ACTION') || trimmed.includes('Insight') || trimmed.includes('INSIGHT')) { section = 'action'; continue; }
+
+        const clean = trimmed.replace(/^[📌🌟⚡•🎯💡🔑]+/, '').replace(/^[A-Z\s]+:/, '').trim();
+        if (!clean) continue;
+
+        if (section === 'summary' || (summaryLines.length === 0 && !section)) {
+          if (clean.match(/^[•\-*]\s/) || /^\d+[\.\)]\s/.test(clean)) {
+            summaryLines.push(clean.replace(/^[•\-*]\s/, '').replace(/^\d+[\.\)]\s/, ''));
+          } else if (summaryLines.length < 3) {
+            summaryLines.push(clean);
+          }
+        } else if (section === 'takeaway') {
+          if (clean.match(/^[•\-*]\s/) || /^\d+[\.\)]\s/.test(clean)) {
+            takeawayLines.push(clean.replace(/^[•\-*]\s/, '').replace(/^\d+[\.\)]\s/, ''));
+          } else if (takeawayLines.length < 5) {
+            takeawayLines.push(clean);
+          }
+        } else if (section === 'action') {
+          if (actionLine) actionLine += ' ' + clean;
+          else actionLine = clean;
+        }
+      }
+
+      // If parsing failed, try general approach
+      if (summaryLines.length === 0) {
+        const allLines = output.split('\n').filter(l => l.trim().startsWith('•') || l.trim().startsWith('-'));
+        summaryLines = allLines.slice(0, 3).map(l => l.replace(/^[•\-]\s/, ''));
+        takeawayLines = allLines.slice(3, 8).map(l => l.replace(/^[•\-]\s/, ''));
+        if (allLines.length > 8) actionLine = allLines.slice(8).join(' ');
+      }
+
+      document.getElementById('summaryOutput').innerHTML = summaryLines.length
+        ? summaryLines.map(s => `<div class="bullet text-gray-300">${s}</div>`).join('')
+        : `<div class="text-gray-500 text-sm">${output.slice(0, 500)}</div>`;
+
+      document.getElementById('takeawaysOutput').innerHTML = takeawayLines.length
+        ? takeawayLines.map(s => `<div class="keypt text-gray-300">${s}</div>`).join('')
+        : '';
+
+      document.getElementById('actionOutput').innerHTML = actionLine
+        ? `<div class="action-item text-yellow-300 bg-yellow-500/10 rounded-xl p-4 border border-yellow-500/20">${actionLine}</div>`
+        : '';
+
+      document.getElementById('metaSource').innerHTML = `<i class="ph ph-link"></i> ${url || title}`;
+      document.getElementById('metaWordCount').innerHTML = `<i class="ph ph-text-aa"></i> ${wordCount.toLocaleString()} words`;
+      document.getElementById('metaTime').innerHTML = `<i class="ph ph-clock"></i> ${new Date().toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+
+      document.getElementById('resultsSection').classList.remove('hidden');
+      document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── History ────────────────────────────────────
+    function showHistory() {
+      document.getElementById('historyPanel').classList.toggle('hidden');
+    }
+
+    function closeHistory() {
+      document.getElementById('historyPanel').classList.add('hidden');
+    }
+
+    function renderHistory() {
+      const list = document.getElementById('historyList');
+      if (!history.length) {
+        list.innerHTML = '<div class="text-center text-gray-500 py-8 text-sm">Belum ada riwayat. Mulai baca artikel pertamamu!</div>';
+        return;
+      }
+      list.innerHTML = history.map((h, i) => `
+        <div class="glass rounded-xl p-4 flex items-start gap-3 cursor-pointer hover:border-blue-500/30 transition" onclick="replayHistory(${i})">
+          <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="ph ph-book-open text-blue-400 text-sm"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm truncate">${h.title}</div>
+            <div class="text-xs text-gray-500 truncate">${new Date(h.time).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function replayHistory(idx) {
+      const entry = history[idx];
+      if (!entry) return;
+      parseAndRenderOutput(entry.output, entry.title, entry.content.split(/\s+/).length, entry.url);
+      closeHistory();
+    }
+
+    function clearHistory() {
+      if (!confirm('Hapus semua riwayat?')) return;
+      history = [];
+      localStorage.setItem('smartreads_history', '[]');
+      renderHistory();
+      showToast('Riwayat dihapus');
+    }
+
+    // ── API Key ─────────────────────────────────────
+    function openSettings() {
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    function saveAPIKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (!key) return showToast('API key tidak boleh kosong');
+      localStorage.setItem('mimo_key_smartreads', key);
+      apiKey = key;
+      closeSettings();
+      showToast('API key disimpan!');
+    }
+
+    async function testAPI() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      const status = document.getElementById('apiStatus');
+      status.textContent = 'Testing...'; status.className = 'mt-3 text-xs text-center text-gray-400';
+      try {
+        const res = await fetch('https://api.xiaomimimo.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'MiMo-8B-Preview', messages: [{ role: 'user', content: 'Hi' }], max_tokens: 10 }),
+        });
+        if (res.ok) {
+          status.textContent = '✅ API key valid!'; status.className = 'mt-3 text-xs text-center text-green-400';
+        } else {
+          const e = await res.json();
+          status.textContent = '❌ Error: ' + (e.error?.message || res.status); status.className = 'mt-3 text-xs text-center text-red-400';
+        }
+      } catch (err) {
+        status.textContent = '❌ Gagal connect: ' + err.message; status.className = 'mt-3 text-xs text-center text-red-400';
+      }
+    }
+
+    // ── Toast ──────────────────────────────────────
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 2500);
+    }
+  </script>
+</body>
+</html>
